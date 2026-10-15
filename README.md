@@ -31,8 +31,7 @@ auth codes, POST `/authorize`, cross-origin DCR...). See
 > with Headlamp as the relying party and kube-apiserver accepting the tokens
 > ([field report](docs/field-report-2026-10-14-k3s-headlamp.md)); the test
 > suite covers about 93% of lines. Images are built by CI at
-> `ghcr.io/abrar-uddin/tsidp-rust` for amd64 and arm64; the package is private
-> while the repository is (pull secret or make it public).
+> `ghcr.io/abrar-uddin/tsidp-rust` for amd64 and arm64.
 
 ## Quick start (Docker Compose)
 
@@ -56,7 +55,7 @@ Then add the grant below to your tailnet policy and open
 ## Quick start (Kubernetes)
 
 ```sh
-kubectl apply -k deploy/kubernetes/base       # image: ghcr.io/abrar-uddin/tsidp-rust (needs a pull secret while private)
+kubectl apply -k deploy/kubernetes/base       # image: ghcr.io/abrar-uddin/tsidp-rust:0.1.0
 kubectl -n tsidp create secret generic tsidp-authkey --from-literal=TS_AUTHKEY=tskey-auth-...
 ```
 

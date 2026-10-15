@@ -109,8 +109,7 @@ spec:
             limits: { memory: 256Mi }
 
         - name: tsidp
-          # Built by CI on every push to main. The package is private while the
-          # repo is: add an imagePullSecret (see docs/kubernetes.md) or make it public.
+          # Public package; releases publish X.Y.Z, X.Y and latest.
           image: ghcr.io/abrar-uddin/tsidp-rust:0.1.0
           args: []
           env:

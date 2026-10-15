@@ -147,12 +147,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          path: dist
-          merge-multiple: true
+      # actions/download-artifact@v4 failed repeatedly ("download failed after
+      # 5 retries") on this run's artifacts; the gh CLI uses the same API and
+      # is already on the runner.
+      - name: download build artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir artifacts
+          mkdir -p dist
+          find artifacts -type f -exec mv -t dist/ {} +
+          ls -l dist
       - name: checksums and notes
         run: |
           set -eu

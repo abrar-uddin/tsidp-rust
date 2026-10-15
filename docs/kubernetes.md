@@ -17,20 +17,16 @@ exists for.
   also works: set `TS_CLIENT_ID` and `TS_AUDIENCE` on the sidecar instead.
 * The policy entries in [Tailnet policy](#tailnet-policy).
 * The image: releases publish `ghcr.io/abrar-uddin/tsidp-rust:X.Y.Z` and
-  `:latest`; pushes to `main` publish `:main` and `:sha-...`. The package inherits the
-  repository's visibility; while that is private, give the cluster a pull
-  secret (see [Image](#image)) or make the package public.
+  `:latest`; pushes to `main` publish `:main` and `:sha-...`. The packages are
+  public; nothing to configure for pulls.
 
 ## Image
 
-CI builds and pushes `ghcr.io/abrar-uddin/tsidp-rust` for amd64 and arm64. To pull
-a private package, create a pull secret from a token with `read:packages` and
-reference it from the pod:
-
-```sh
-kubectl -n tsidp create secret docker-registry ghcr   --docker-server=ghcr.io --docker-username=abrar-uddin --docker-password=<token>
-kubectl -n tsidp patch serviceaccount tsidp -p '{"imagePullSecrets":[{"name":"ghcr"}]}'
-```
+Releases publish `ghcr.io/abrar-uddin/tsidp-rust:X.Y.Z` (also `:X.Y` and
+`:latest`) for amd64 and arm64; pushes to `main` publish `:main` and
+`:sha-<commit>`. The packages are public, so no pull secret is needed. If you
+mirror the image into a private registry, add the usual `imagePullSecrets`
+to the `tsidp` ServiceAccount.
 
 Or build locally:
 
@@ -417,7 +413,7 @@ scripts/e2e-login.sh https://idp.<tailnet>.ts.net <client id> https://app/cb
 
 | symptom | cause / fix |
 |---|---|
-| `ErrImagePull` | the GHCR package is private: add a pull secret, make the package public, or sideload (see [Image](#image)) |
+| `ErrImagePull` | check the tag exists on the [package page](https://github.com/abrar-uddin/tsidp-rust/pkgs/container/tsidp-rust); for a private mirror add a pull secret; or sideload (see [Image](#image)) |
 | StatefulSet change does not roll out while the pod is crash-looping | RollingUpdate waits for a Ready pod; `kubectl -n tsidp delete pod tsidp-0` |
 | RP log: `Post "https://idp.<tailnet>.ts.net/token": dial tcp: lookup idp.<tailnet>.ts.net ... no such host` | the RP is using tailnet URLs; point its issuer at the cluster Service and check `TSIDP_CLUSTER_PUBLIC_URL` |
 | RP log: `issuer did not match the issuer returned by provider` | expected in the default mode: set the RP's issuer-validation override to the tailnet URL (Headlamp `validatorIssuerURL`), or enable `TSIDP_CLUSTER_ISSUER_URL` |

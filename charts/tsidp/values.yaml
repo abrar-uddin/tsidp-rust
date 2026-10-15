@@ -1,8 +1,7 @@
 # Default values for tsidp.
 
 image:
-  # Built and pushed by CI on every push to main (tags: main, sha, semver).
-  # The package is private while the repo is; add an imagePullSecret or make it public.
+  # Public package. Releases publish X.Y.Z, X.Y and latest; main pushes publish main and sha-*.
   repository: ghcr.io/abrar-uddin/tsidp-rust
   tag: ""            # defaults to .Chart.AppVersion
   pullPolicy: IfNotPresent
