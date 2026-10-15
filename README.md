@@ -60,10 +60,23 @@ kubectl apply -k deploy/kubernetes/base       # image: ghcr.io/abrar-uddin/tsidp
 kubectl -n tsidp create secret generic tsidp-authkey --from-literal=TS_AUTHKEY=tskey-auth-...
 ```
 
-or `helm install tsidp charts/tsidp --set tailscale.authKeySecret=tsidp-authkey`.
+or `helm install tsidp oci://ghcr.io/abrar-uddin/charts/tsidp --version 0.1.0 --set tailscale.authKeySecret=tsidp-authkey`.
 Node auth with an OAuth client, the tailnet policy, the admin JSON API, a
 worked Headlamp + kube-apiserver example and troubleshooting:
 [docs/kubernetes.md](docs/kubernetes.md).
+
+## Releases
+
+Every tag `vX.Y.Z` (cut with `scripts/release.sh X.Y.Z --push`) publishes:
+
+| artifact | where |
+|---|---|
+| image | `ghcr.io/abrar-uddin/tsidp-rust:X.Y.Z`, `:X.Y`, `:latest` (amd64, arm64) |
+| Helm chart | `helm install tsidp oci://ghcr.io/abrar-uddin/charts/tsidp --version X.Y.Z` |
+| static binaries | `tsidp-server-vX.Y.Z-linux-{amd64,arm64}.tar.gz` with `SHA256SUMS` on the [GitHub Release](https://github.com/abrar-uddin/tsidp-rust/releases) |
+
+Pushes to `main` only produce `:main` and `:sha-...` images. The release body
+is the matching section of [CHANGELOG.md](CHANGELOG.md).
 
 ## Endpoints
 

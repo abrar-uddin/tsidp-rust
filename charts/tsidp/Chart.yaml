@@ -6,4 +6,5 @@ version: 0.1.0
 appVersion: "0.1.0"
 keywords: [tailscale, oidc, oauth, identity, sso]
 sources:
+  - https://github.com/abrar-uddin/tsidp-rust
   - https://github.com/tailscale/tsidp

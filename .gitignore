@@ -5,3 +5,6 @@
 oidc-key.json
 oidc-funnel-clients.json
 .DS_Store
+# compose.yaml reads TS_AUTHKEY from here
+.env
+.env.*

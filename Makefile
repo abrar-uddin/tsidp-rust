@@ -1,4 +1,4 @@
-.PHONY: build test coverage clippy fmt deny release docker-image image-tar dev helm-lint kustomize-check
+.PHONY: build test coverage clippy fmt deny release docker-image image-tar binary dev helm-lint kustomize-check cut-release
 
 # Everything runs inside the dev container (scripts/dev.sh); no local Rust needed.
 DEV := ./scripts/dev.sh
@@ -50,3 +50,13 @@ helm-lint:
 kustomize-check:
 	kubectl kustomize deploy/kubernetes/base >/dev/null
 	kubectl kustomize deploy/kubernetes/overlays/pvc >/dev/null
+
+# Just the static binary for this host's arch (same builder stage as the image).
+binary:
+	docker buildx build --target binary --build-arg VERSION=$(VERSION) --output type=local,dest=dist/bin .
+	@ls -l dist/bin/tsidp-server
+
+# Bump versions, update CHANGELOG, commit and tag; pushes the tag with PUSH=1.
+#   make cut-release V=0.2.0 PUSH=1
+cut-release:
+	scripts/release.sh $(V) $(if $(PUSH),--push,)

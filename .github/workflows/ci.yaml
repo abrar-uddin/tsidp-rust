@@ -55,6 +55,9 @@ jobs:
             --config /src/.kube-linter.yaml /tmp/helm.yaml /tmp/base.yaml /tmp/pvc.yaml
 
   image:
+    # Branch builds only (:main, :sha-...). Tagged releases are built by
+    # release.yaml, which also publishes :X.Y.Z and :latest.
+    if: github.ref_type != 'tag'
     needs: [rust, supply-chain, manifests]
     runs-on: ubuntu-latest
     permissions:
@@ -76,7 +79,6 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=branch
-            type=semver,pattern={{version}}
             type=sha
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:

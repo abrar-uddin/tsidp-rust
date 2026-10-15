@@ -16,8 +16,8 @@ exists for.
   [Node authentication](#node-authentication)). Workload identity federation
   also works: set `TS_CLIENT_ID` and `TS_AUDIENCE` on the sidecar instead.
 * The policy entries in [Tailnet policy](#tailnet-policy).
-* The image: CI publishes `ghcr.io/abrar-uddin/tsidp-rust` (`:main`, `:sha-...`,
-  and `:<version>` for tags) on every push to `main`. The package inherits the
+* The image: releases publish `ghcr.io/abrar-uddin/tsidp-rust:X.Y.Z` and
+  `:latest`; pushes to `main` publish `:main` and `:sha-...`. The package inherits the
   repository's visibility; while that is private, give the cluster a pull
   secret (see [Image](#image)) or make the package public.
 
@@ -151,11 +151,13 @@ swap with the Secret backend.
 ## Install with Helm
 
 ```sh
-helm install tsidp charts/tsidp -n tsidp --create-namespace \
-  --set image.repository=<your registry>/tsidp-rust \
+helm install tsidp oci://ghcr.io/abrar-uddin/charts/tsidp --version 0.1.0 \
+  -n tsidp --create-namespace \
   --set tailscale.authKeySecret=tsidp-authkey \
   --set tailscale.hostname=idp
 ```
+
+(`charts/tsidp` from a checkout works the same way.)
 
 or with an OAuth client:
 

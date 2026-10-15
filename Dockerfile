@@ -47,6 +47,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     readelf -d /tsidp-server > /tmp/dynsec 2>&1 || true; \
     if grep -q NEEDED /tmp/dynsec; then echo "binary is not static:" >&2; cat /tmp/dynsec >&2; exit 1; fi
 
+# Release artifacts: `docker buildx build --target binary --output type=local,dest=out .`
+# leaves just the static binary in ./out, for the GitHub Release tarballs.
+FROM scratch AS binary
+COPY --from=builder /tsidp-server /tsidp-server
+
 FROM gcr.io/distroless/static-debian12:nonroot
 LABEL org.opencontainers.image.source="https://github.com/abrar-uddin/tsidp-rust" \
       org.opencontainers.image.description="Tailscale OIDC identity provider (Rust, sidecar/Kubernetes friendly)" \
