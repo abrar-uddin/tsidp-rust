@@ -72,6 +72,8 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         id: build
         with:
           context: .
@@ -95,6 +97,8 @@ jobs:
       # Same builder stage as the image (cross-compiled on amd64, no QEMU),
       # exporting only the static binary.
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         with:
           context: .
           platforms: linux/${{ matrix.arch }}
@@ -150,15 +154,18 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      # actions/download-artifact@v4 failed repeatedly ("download failed after
-      # 5 retries") on this run's artifacts; the gh CLI uses the same API and
-      # is already on the runner.
+      # Only the artifacts this workflow uploads by name. Downloading "all"
+      # also pulls docker/build-push-action's *.dockerbuild records, which is
+      # what made both actions/download-artifact and a bare `gh run download`
+      # fail here.
       - name: download build artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eu
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir artifacts
+          for name in bin-amd64 bin-arm64 chart; do
+            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$name" --dir "artifacts/$name"
+          done
           mkdir -p dist
           find artifacts -type f -exec mv -t dist/ {} +
           ls -l dist
