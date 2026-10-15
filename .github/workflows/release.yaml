@@ -178,6 +178,7 @@ jobs:
           awk -v v="$v" '
             $0 ~ "^## \\[" v "\\]" { on=1; next }
             on && /^## \[/ { exit }
+            on && /^\[[^]]+\]: https?:\/\// { next }   # link reference definitions at the end
             on { print }
           ' CHANGELOG.md > notes.md
           cat >> notes.md <<EOF
