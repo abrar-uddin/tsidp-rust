@@ -1,0 +1,31 @@
+# The tailscale sidecar keeps its node state in a Secret (TS_KUBE_SECRET) and
+# tsidp keeps its signing key and clients in another (TSIDP_STATE_BACKEND=kubernetes),
+# so the pod needs no PersistentVolume. Both are namespaced Secrets; the Role
+# limits reads/writes to those two names and `create` to this namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tsidp
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["tsidp-tailscale-state", "tsidp-state"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tsidp
+subjects:
+  - kind: ServiceAccount
+    name: tsidp
+roleRef:
+  kind: Role
+  name: tsidp
+  apiGroup: rbac.authorization.k8s.io

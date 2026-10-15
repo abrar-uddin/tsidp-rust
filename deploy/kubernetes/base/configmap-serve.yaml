@@ -1,0 +1,22 @@
+# Serve config for the tailscale sidecar: terminate TLS for the node's
+# MagicDNS name on 443 and proxy to tsidp on loopback. tsidp also writes the
+# same config through LocalAPI at startup (it runs as the same uid as
+# tailscaled), so this ConfigMap is belt and braces: it makes the proxy exist
+# even before tsidp is up and keeps working if LocalAPI writes are refused.
+#
+# Funnel: add  "AllowFunnel": { "${TS_CERT_DOMAIN}:443": true }
+# and set TSIDP_USE_FUNNEL=1 on the tsidp container.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tsidp-serve-config
+data:
+  serve.json: |
+    {
+      "TCP": { "443": { "HTTPS": true } },
+      "Web": {
+        "${TS_CERT_DOMAIN}:443": {
+          "Handlers": { "/": { "Proxy": "http://127.0.0.1:8443" } }
+        }
+      }
+    }

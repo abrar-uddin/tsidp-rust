@@ -1,0 +1,55 @@
+# tsidp with a tailscale sidecar, Docker Compose edition.
+#
+# 1. Create an auth key (or OAuth client secret + TS_EXTRA_ARGS=--advertise-tags=tag:tsidp)
+#    and put it in .env as TS_AUTHKEY=tskey-auth-...
+# 2. docker compose up -d
+# 3. Visit https://idp.<your-tailnet>.ts.net (give yourself the allow_admin_ui grant first)
+#
+# Both containers share one network namespace, so `tailscale serve` reaches
+# tsidp on 127.0.0.1:8443 and tsidp reaches tailscaled's LocalAPI socket on a
+# shared volume. tailscaled runs in userspace mode: no /dev/net/tun, no caps.
+
+services:
+  tailscale:
+    image: tailscale/tailscale:v1.96.5
+    container_name: tsidp-tailscale
+    hostname: idp            # becomes idp.<tailnet>.ts.net
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SOCKET: /var/run/tailscale/tailscaled.sock
+      TS_USERSPACE: "true"
+      TS_SERVE_CONFIG: /config/serve.json   # tsidp can also write this itself via LocalAPI
+      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:-}
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - tailscale-sock:/var/run/tailscale
+      - ./deploy/compose/serve.json:/config/serve.json:ro
+    restart: unless-stopped
+
+  tsidp:
+    image: ghcr.io/abrar-uddin/tsidp-rust:0.1.0
+    build: .
+    container_name: tsidp
+    network_mode: service:tailscale
+    depends_on: [tailscale]
+    environment:
+      TSIDP_STATE_DIR: /data
+      TSIDP_TAILSCALE_SOCKET: /var/run/tailscale/tailscaled.sock
+      TSIDP_LISTEN: 127.0.0.1:8443
+      TSIDP_ENABLE_STS: "1"
+      TSIDP_USE_FUNNEL: "0"
+      TSIDP_LOG_FORMAT: json
+    volumes:
+      - tsidp-data:/data
+      - tailscale-sock:/var/run/tailscale
+    healthcheck:
+      # readiness, not liveness: fails while tailscaled is not Running
+      test: ["CMD", "/tsidp-server", "--check-ready"]
+      interval: 30s
+    restart: unless-stopped
+
+volumes:
+  tailscale-state:
+  tailscale-sock:
+  tsidp-data:

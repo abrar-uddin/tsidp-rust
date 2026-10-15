@@ -1,0 +1,101 @@
+# Default values for tsidp.
+
+image:
+  # Built and pushed by CI on every push to main (tags: main, sha, semver).
+  # The package is private while the repo is; add an imagePullSecret or make it public.
+  repository: ghcr.io/abrar-uddin/tsidp-rust
+  tag: ""            # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+tailscale:
+  image:
+    repository: tailscale/tailscale
+    tag: v1.96.5
+  # Hostname on the tailnet -> https://<hostname>.<tailnet>.ts.net
+  hostname: idp
+  # Name of an existing Secret with key TS_AUTHKEY (auth key or OAuth client
+  # secret). Leave empty to register interactively from the sidecar logs.
+  authKeySecret: ""
+  authKeySecretKey: TS_AUTHKEY
+  # Extra `tailscale up` args, e.g. "--advertise-tags=tag:tsidp" (required with OAuth client secrets)
+  extraArgs: ""
+  # Node auth with an OAuth client instead of an auth key. The client needs
+  # the auth_keys write scope for `tags`, and tagOwners[tag] must list the
+  # OAuth client's own tag. Renders TS_AUTHKEY=$(secret)?ephemeral=..&preauthorized=..
+  oauth:
+    existingSecret: ""        # Secret holding the client secret
+    key: client_secret
+    tags: "tag:tsidp"         # comma separated, becomes --advertise-tags
+    ephemeral: false
+    preauthorized: true
+  # Expose publicly via Funnel (also sets TSIDP_USE_FUNNEL)
+  funnel: false
+  # Store node state in a Secret (no PVC needed). Set to "" to use the state PVC.
+  kubeSecret: tsidp-tailscale-state
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+tsidp:
+  # kubernetes | file
+  stateBackend: kubernetes
+  stateSecret: tsidp-state
+  enableSTS: true
+  jwtAccessTokens: false
+  allowTaggedNodes: false
+  # Let browser pages on other origins call /register (needed by browser-based
+  # MCP clients). Off: a visited web page could otherwise register OIDC clients
+  # with the visitor's tailnet identity. Server-to-server DCR works regardless.
+  allowCrossOriginDcr: false
+  # Accept http:// redirect URIs for non-loopback hosts (codes travel in clear).
+  allowHttpRedirectUris: false
+  extraScopes: ""
+  emailDomain: ""
+  issuerUrl: ""          # override, e.g. for a Tailscale Service FQDN
+  logLevel: info
+  logFormat: json
+  # The cluster-facing listener (token/userinfo/jwks). Disable with "".
+  clusterListen: 0.0.0.0:8080
+  # URL in-cluster apps use for that listener; advertised by its discovery
+  # document. Defaults to http://<release>.<namespace>.svc:<service.port>.
+  clusterPublicUrl: ""
+  # Optional: make the cluster listener a second issuer (tokens minted there
+  # carry this `iss`). Only for relying parties that cannot override issuer
+  # validation; never when ID tokens are forwarded to kube-apiserver.
+  clusterIssuerUrl: ""
+  env: []                # extra env vars
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 128Mi }
+
+# Used only when tsidp.stateBackend=file or tailscale.kubeSecret="".
+persistence:
+  enabled: false
+  size: 100Mi
+  storageClass: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+  adminPort: 9464
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+
+networkPolicy:
+  enabled: true
+  # Who may reach the unauthenticated admin port (/healthz, /readyz, /metrics).
+  # Empty = any source (kubelet probes do not need a rule; they bypass
+  # NetworkPolicy). Example for a Prometheus in the monitoring namespace:
+  #   adminIngressFrom:
+  #     - namespaceSelector:
+  #         matchLabels: { kubernetes.io/metadata.name: monitoring }
+  adminIngressFrom: []
+  # Same for the cluster listener (token/userinfo/jwks). Empty = any source.
+  clusterIngressFrom: []
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

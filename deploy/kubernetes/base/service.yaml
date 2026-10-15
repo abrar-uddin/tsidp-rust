@@ -1,0 +1,25 @@
+# In-cluster relying parties use this Service for the server-to-server half
+# of OIDC (token, userinfo, jwks, discovery) over plain HTTP, so they never
+# depend on tailnet routing from inside the cluster (issue #169). Browsers still
+# go to https://idp.<tailnet>.ts.net for /authorize.
+#
+# Example Grafana config:
+#   auth_url  = https://idp.<tailnet>.ts.net/authorize
+#   token_url = http://tsidp.tsidp.svc.cluster.local:8080/token
+#   api_url   = http://tsidp.tsidp.svc.cluster.local:8080/userinfo
+apiVersion: v1
+kind: Service
+metadata:
+  name: tsidp
+  labels:
+    app.kubernetes.io/name: tsidp
+spec:
+  selector:
+    app.kubernetes.io/name: tsidp
+  ports:
+    - name: http
+      port: 8080
+      targetPort: cluster
+    - name: admin
+      port: 9464
+      targetPort: admin

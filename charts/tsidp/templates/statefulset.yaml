@@ -1,0 +1,229 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "tsidp.fullname" . }}
+  labels:
+    {{- include "tsidp.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tsidp.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "tsidp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tsidp.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/serve: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tsidp.fullname" . }}
+      enableServiceLinks: false   # avoid <SERVICE>_PORT=tcp://... colliding with TSIDP_* env
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: tailscale
+          image: "{{ .Values.tailscale.image.repository }}:{{ .Values.tailscale.image.tag }}"
+          env:
+            {{- if .Values.tailscale.kubeSecret }}
+            - name: TS_KUBE_SECRET
+              value: {{ .Values.tailscale.kubeSecret | quote }}
+            {{- end }}
+            - name: TS_USERSPACE
+              value: "true"
+            - name: TS_SOCKET
+              value: /var/run/tailscale/tailscaled.sock
+            - name: TS_STATE_DIR
+              value: /var/lib/tailscale
+            - name: TS_HOSTNAME
+              value: {{ .Values.tailscale.hostname | quote }}
+            - name: TS_SERVE_CONFIG
+              value: /config/serve.json
+            {{- if .Values.tailscale.oauth.existingSecret }}
+            - name: TS_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.tailscale.oauth.existingSecret }}
+                  key: {{ .Values.tailscale.oauth.key }}
+            - name: TS_AUTHKEY
+              value: "$(TS_OAUTH_CLIENT_SECRET)?ephemeral={{ .Values.tailscale.oauth.ephemeral }}&preauthorized={{ .Values.tailscale.oauth.preauthorized }}"
+            - name: TS_EXTRA_ARGS
+              value: {{ printf "--advertise-tags=%s %s" .Values.tailscale.oauth.tags .Values.tailscale.extraArgs | trim | quote }}
+            {{- else }}
+            {{- if .Values.tailscale.authKeySecret }}
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.tailscale.authKeySecret }}
+                  key: {{ .Values.tailscale.authKeySecretKey }}
+                  optional: true
+            {{- end }}
+            {{- if .Values.tailscale.extraArgs }}
+            - name: TS_EXTRA_ARGS
+              value: {{ .Values.tailscale.extraArgs | quote }}
+            {{- end }}
+            {{- end }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tailscale-socket
+              mountPath: /var/run/tailscale
+            - name: tailscale-tmp
+              mountPath: /tmp
+            - name: serve-config
+              mountPath: /config
+              readOnly: true
+            {{- if .Values.tailscale.kubeSecret }}
+            - name: tailscale-state
+              mountPath: /var/lib/tailscale
+            {{- else }}
+            - name: data
+              mountPath: /var/lib/tailscale
+              subPath: tailscale
+            {{- end }}
+          resources:
+            {{- toYaml .Values.tailscale.resources | nindent 12 }}
+        - name: tsidp
+          image: {{ include "tsidp.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: TSIDP_TAILSCALE_SOCKET
+              value: /var/run/tailscale/tailscaled.sock
+            - name: TSIDP_LISTEN
+              value: 127.0.0.1:8443
+            {{- if .Values.tsidp.clusterListen }}
+            - name: TSIDP_CLUSTER_LISTEN
+              value: {{ .Values.tsidp.clusterListen | quote }}
+            - name: TSIDP_CLUSTER_PUBLIC_URL
+              value: {{ .Values.tsidp.clusterPublicUrl | default (printf "http://%s.%s.svc:%v" (include "tsidp.fullname" .) .Release.Namespace .Values.service.port) | quote }}
+            {{- if .Values.tsidp.clusterIssuerUrl }}
+            - name: TSIDP_CLUSTER_ISSUER_URL
+              value: {{ .Values.tsidp.clusterIssuerUrl | quote }}
+            {{- end }}
+            {{- end }}
+            - name: TSIDP_ADMIN_LISTEN
+              value: 0.0.0.0:9464
+            - name: TSIDP_STATE_BACKEND
+              value: {{ .Values.tsidp.stateBackend | quote }}
+            - name: TSIDP_KUBE_SECRET
+              value: {{ .Values.tsidp.stateSecret | quote }}
+            - name: TSIDP_STATE_DIR
+              value: /data
+            - name: TSIDP_ENABLE_STS
+              value: {{ .Values.tsidp.enableSTS | quote }}
+            - name: TSIDP_USE_FUNNEL
+              value: {{ .Values.tailscale.funnel | quote }}
+            - name: TSIDP_JWT_ACCESS_TOKENS
+              value: {{ .Values.tsidp.jwtAccessTokens | quote }}
+            - name: TSIDP_ALLOW_TAGGED_NODES
+              value: {{ .Values.tsidp.allowTaggedNodes | quote }}
+            - name: TSIDP_ALLOW_CROSS_ORIGIN_DCR
+              value: {{ .Values.tsidp.allowCrossOriginDcr | quote }}
+            - name: TSIDP_ALLOW_HTTP_REDIRECT_URIS
+              value: {{ .Values.tsidp.allowHttpRedirectUris | quote }}
+            {{- if .Values.tsidp.extraScopes }}
+            - name: TSIDP_EXTRA_SCOPES
+              value: {{ .Values.tsidp.extraScopes | quote }}
+            {{- end }}
+            {{- if .Values.tsidp.emailDomain }}
+            - name: TSIDP_EMAIL_DOMAIN
+              value: {{ .Values.tsidp.emailDomain | quote }}
+            {{- end }}
+            {{- if .Values.tsidp.issuerUrl }}
+            - name: TSIDP_ISSUER_URL
+              value: {{ .Values.tsidp.issuerUrl | quote }}
+            {{- end }}
+            - name: TSIDP_LOG
+              value: {{ .Values.tsidp.logLevel | quote }}
+            - name: TSIDP_LOG_FORMAT
+              value: {{ .Values.tsidp.logFormat | quote }}
+            {{- with .Values.tsidp.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: cluster
+              containerPort: 8080
+            - name: admin
+              containerPort: 9464
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tailscale-socket
+              mountPath: /var/run/tailscale
+            {{- if eq .Values.tsidp.stateBackend "file" }}
+            - name: data
+              mountPath: /data
+              subPath: tsidp
+            {{- end }}
+          startupProbe:
+            httpGet: { path: /readyz, port: admin }
+            periodSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet: { path: /readyz, port: admin }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: admin }
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.tsidp.resources | nindent 12 }}
+      volumes:
+        - name: tailscale-socket
+          emptyDir: {}
+        - name: tailscale-tmp
+          emptyDir: {}
+        {{- if .Values.tailscale.kubeSecret }}
+        - name: tailscale-state
+          emptyDir: {}
+        {{- end }}
+        - name: serve-config
+          configMap:
+            name: {{ include "tsidp.fullname" . }}-serve
+  {{- if include "tsidp.usePvc" . }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+  {{- end }}

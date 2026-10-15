@@ -1,0 +1,23 @@
+tsidp is starting as a StatefulSet with a tailscale sidecar.
+
+1. Watch the node come up:
+     kubectl -n {{ .Release.Namespace }} logs sts/{{ include "tsidp.fullname" . }} -c tailscale -f
+   If no auth key or OAuth client was provided, follow the login URL printed there.
+   The first HTTPS request can fail for about a minute while the certificate is issued.
+
+2. Grant yourself access in the tailnet policy file:
+     "grants": [{
+       "src": ["autogroup:member"], "dst": ["tag:tsidp"],   // or the node's user
+       "app": {"tailscale.com/cap/tsidp": [{"allow_admin_ui": true, "allow_dcr": true}]}
+     }]
+
+3. Open https://{{ .Values.tailscale.hostname }}.<your-tailnet>.ts.net
+
+4. In-cluster relying parties can use:
+     http://{{ include "tsidp.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}/token
+     http://{{ include "tsidp.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}/userinfo
+     http://{{ include "tsidp.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}/.well-known/jwks.json
+   while browsers use the tailnet URL for /authorize.
+
+Readiness: kubectl -n {{ .Release.Namespace }} get pod -l app.kubernetes.io/instance={{ .Release.Name }}
+Details:   kubectl -n {{ .Release.Namespace }} port-forward sts/{{ include "tsidp.fullname" . }} 9464 && curl localhost:9464/readyz

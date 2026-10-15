@@ -1,0 +1,7 @@
+/target
+/dist
+/data
+*.local.yaml
+oidc-key.json
+oidc-funnel-clients.json
+.DS_Store

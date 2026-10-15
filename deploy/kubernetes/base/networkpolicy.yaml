@@ -1,0 +1,22 @@
+# Nothing in the cluster needs to reach the tailnet listener (it is on
+# loopback anyway); expose only the cluster listener and the admin port.
+# The admin port is unauthenticated: narrow it to your monitoring namespace
+# with a `from:` clause, e.g.
+#   - ports: [{port: 9464}]
+#     from:
+#       - namespaceSelector:
+#           matchLabels: { kubernetes.io/metadata.name: monitoring }
+# (kubelet probes bypass NetworkPolicy, so this never breaks readiness).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tsidp
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: tsidp
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - port: 8080
+        - port: 9464

@@ -1,0 +1,8 @@
+# kube-linter configuration for the manifests and chart.
+checks:
+  addAllBuiltIn: false
+  doNotAutoAddDefaults: false
+  exclude:
+    # TS_KUBE_SECRET / TSIDP_KUBE_SECRET hold the *name* of a Secret, not a
+    # secret value; the heuristic matches on the variable name.
+    - env-var-secret

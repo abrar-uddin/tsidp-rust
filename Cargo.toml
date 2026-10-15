@@ -1,0 +1,49 @@
+[package]
+name = "tsidp"
+version = "0.1.0"
+edition = "2024"
+description = "Tailscale OIDC identity provider, Rust edition, built for Kubernetes sidecar deployments"
+license = "BSD-3-Clause"
+repository = "https://github.com/abrar-uddin/tsidp-rust"
+rust-version = "1.85"
+
+[[bin]]
+name = "tsidp-server"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.104"
+async-trait = "0.1"
+axum = { version = "0.8.9", features = ["macros"] }
+base64 = "0.22"
+bytes = "1.12.1"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+html-escape = "0.3.0"
+http-body-util = "0.1.5"
+hyper = { version = "1.12.0", features = ["http1", "client"] }
+hyper-util = { version = "0.1.21", features = ["tokio"] }
+jsonwebtoken = { version = "11.1.0", features = ["rust_crypto"] }
+parking_lot = "0.12.5"
+pkcs1 = { version = "0.7.5", features = ["pem"] }
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+rsa = { version = "0.9.10", features = ["pem"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.10"
+subtle = "2.6.1"
+thiserror = "2.0.21"
+tokio = { version = "1.53.3", features = ["full"] }
+tower-http = { version = "0.7.1", features = ["cors"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
+url = "2.5.8"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+tower = { version = "0.5", features = ["util"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

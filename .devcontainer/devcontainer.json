@@ -1,0 +1,25 @@
+{
+  "name": "tsidp (Rust)",
+  "image": "rust:1-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": { "minikube": "none" }
+  },
+  "mounts": [
+    "source=tsidp-rust-cargo-registry,target=/usr/local/cargo/registry,type=volume",
+    "source=tsidp-rust-target,target=${containerWorkspaceFolder}/target,type=volume"
+  ],
+  "postCreateCommand": "rustup component add clippy rustfmt && cargo fetch",
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer", "tamasfe.even-better-toml", "ms-kubernetes-tools.vscode-kubernetes-tools"],
+      "settings": {
+        "rust-analyzer.check.command": "clippy"
+      }
+    }
+  },
+  "remoteEnv": {
+    "CARGO_TERM_COLOR": "always"
+  },
+  "forwardPorts": [8443, 8080, 9464]
+}

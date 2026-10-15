@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tsidp.fullname" . }}
+  labels:
+    {{- include "tsidp.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "tsidp.selectorLabels" . | nindent 4 }}
+  ports:
+    {{- if .Values.tsidp.clusterListen }}
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: cluster
+    {{- end }}
+    - name: admin
+      port: {{ .Values.service.adminPort }}
+      targetPort: admin
+{{- if .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "tsidp.fullname" . }}
+  labels:
+    {{- include "tsidp.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "tsidp.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: admin
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tsidp.fullname" . }}
+  labels:
+    {{- include "tsidp.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "tsidp.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    {{- if .Values.tsidp.clusterListen }}
+    - ports:
+        - port: 8080
+      {{- with .Values.networkPolicy.clusterIngressFrom }}
+      from:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+    - ports:
+        - port: 9464
+      {{- with .Values.networkPolicy.adminIngressFrom }}
+      from:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

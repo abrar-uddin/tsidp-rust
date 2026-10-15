@@ -1,0 +1,53 @@
+:root {
+  --bg: #f7f7f8; --fg: #1f2328; --muted: #6b7280; --card: #ffffff; --border: #e5e7eb;
+  --primary: #1f6feb; --primary-fg: #ffffff; --danger: #d1242f; --warn: #b45309; --ok: #15803d;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1115; --fg: #e6e8eb; --muted: #9aa3ad; --card: #171a21; --border: #2a2f3a; --primary: #4493f8; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--fg); }
+header { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 24px; }
+header nav a { color: inherit; text-decoration: none; }
+header h1 { font-size: 18px; margin: 0; }
+main { max-width: 1040px; margin: 24px auto; padding: 0 16px; }
+h2 { margin: 0 0 4px; font-size: 22px; }
+h3 { margin: 0 0 8px; font-size: 16px; }
+.header-actions { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.client-count, .text-muted, .form-help { color: var(--muted); font-size: 13px; }
+table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+thead td { font-weight: 600; font-size: 13px; color: var(--muted); }
+td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: top; }
+thead td { border-top: 0; }
+code, .client-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; word-break: break-all; }
+.redirect-uris { display: flex; flex-direction: column; gap: 2px; }
+.redirect-uri { font-family: ui-monospace, monospace; font-size: 12.5px; word-break: break-all; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; color: var(--muted); margin-right: 4px; }
+.badge-secret { color: var(--ok); border-color: var(--ok); }
+.btn { display: inline-block; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--fg); text-decoration: none; font-size: 14px; cursor: pointer; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); }
+.btn-danger { color: var(--danger); border-color: var(--danger); }
+.btn-warning { color: var(--warn); border-color: var(--warn); }
+.btn-small { padding: 4px 10px; font-size: 13px; }
+.btn-success { color: var(--ok); border-color: var(--ok); }
+.empty-state { text-align: center; padding: 48px 16px; background: var(--card); border: 1px dashed var(--border); border-radius: 8px; }
+.form-container { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
+.form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-weight: 600; margin-bottom: 4px; }
+.form-group label.checkbox { font-weight: 500; display: flex; gap: 8px; align-items: center; }
+.form-input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
+.form-input-readonly { color: var(--muted); }
+.required { color: var(--danger); }
+.form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.alert { padding: 10px 12px; border-radius: 6px; margin-bottom: 16px; border: 1px solid; }
+.alert-success { color: var(--ok); border-color: var(--ok); }
+.alert-error { color: var(--danger); border-color: var(--danger); }
+.client-info { margin-top: 20px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
+.client-info dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.client-info dt { color: var(--muted); }
+.client-info dd { margin: 0; }
+.warning { color: var(--warn); }
+.secret-field { display: flex; gap: 8px; }
+.secret-input { flex: 1; font-family: ui-monospace, monospace; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); }
+.app-footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }

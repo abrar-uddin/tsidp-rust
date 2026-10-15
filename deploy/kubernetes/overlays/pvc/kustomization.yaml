@@ -1,0 +1,33 @@
+# Variant: keep tsidp state on a PersistentVolume (file backend) instead of a
+# Secret. Useful when migrating an existing Go tsidp data directory: copy
+# oidc-key.json and oidc-funnel-clients.json into the volume and the Rust
+# server picks them up unchanged.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: tsidp
+resources:
+  - ../../base
+patches:
+  - target:
+      kind: StatefulSet
+      name: tsidp
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/1/env/5
+        value: { name: TSIDP_STATE_BACKEND, value: file }
+      - op: add
+        path: /spec/template/spec/containers/1/env/-
+        value: { name: TSIDP_STATE_DIR, value: /data }
+      - op: add
+        path: /spec/template/spec/containers/1/volumeMounts/-
+        value: { name: data, mountPath: /data }
+      - op: add
+        path: /spec/volumeClaimTemplates
+        value:
+          - metadata:
+              name: data
+            spec:
+              accessModes: [ReadWriteOnce]
+              resources:
+                requests:
+                  storage: 100Mi

@@ -1,0 +1,173 @@
+# One pod, two containers:
+#   tailscale  - the node. Userspace networking, state in a Secret, serves
+#                https://idp.<tailnet>.ts.net and proxies to tsidp on loopback.
+#   tsidp      - the identity provider. Talks to tailscaled over the shared
+#                LocalAPI socket, keeps its state in a Secret.
+# A StatefulSet (not a Deployment) because the tailnet node identity must not
+# be duplicated by a rolling update: at most one pod exists at a time.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tsidp
+  labels:
+    app.kubernetes.io/name: tsidp
+spec:
+  serviceName: tsidp
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tsidp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tsidp
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: tsidp
+      # Kubernetes would otherwise inject TSIDP_PORT=tcp://... for the Service
+      # named tsidp, which collides with the TSIDP_* configuration prefix.
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: tailscale
+          image: tailscale/tailscale:v1.96.5
+          env:
+            - name: TS_KUBE_SECRET
+              value: tsidp-tailscale-state
+            - name: TS_USERSPACE
+              value: "true"
+            - name: TS_SOCKET
+              value: /var/run/tailscale/tailscaled.sock
+            - name: TS_STATE_DIR
+              value: /var/lib/tailscale
+            - name: TS_HOSTNAME
+              value: idp
+            - name: TS_SERVE_CONFIG
+              value: /config/serve.json
+            # Node credentials. Only consulted on first start; afterwards the
+            # node identity lives in the TS_KUBE_SECRET.
+            #
+            # Option A: auth key.
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: tsidp-authkey
+                  key: TS_AUTHKEY
+                  optional: true
+            - name: TS_EXTRA_ARGS
+              value: ""
+            #
+            # Option B: OAuth client (replace the two entries above). OAuth-minted
+            # nodes default to ephemeral and unapproved, so append the query
+            # string via $(VAR) expansion; tagOwners["tag:tsidp"] must list the
+            # OAuth client's own tag.
+            # - name: TS_OAUTH_CLIENT_SECRET
+            #   valueFrom:
+            #     secretKeyRef: { name: tsidp-oauth, key: client_secret }
+            # - name: TS_AUTHKEY
+            #   value: "$(TS_OAUTH_CLIENT_SECRET)?ephemeral=false&preauthorized=true"
+            # - name: TS_EXTRA_ARGS
+            #   value: "--advertise-tags=tag:tsidp"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+          # Everything tailscaled writes (state, socket, /tmp) is on a volume,
+          # so the root filesystem can be immutable.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tailscale-socket
+              mountPath: /var/run/tailscale
+            - name: tailscale-state
+              mountPath: /var/lib/tailscale
+            - name: tailscale-tmp
+              mountPath: /tmp
+            - name: serve-config
+              mountPath: /config
+              readOnly: true
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 256Mi }
+
+        - name: tsidp
+          # Built by CI on every push to main. The package is private while the
+          # repo is: add an imagePullSecret (see docs/kubernetes.md) or make it public.
+          image: ghcr.io/abrar-uddin/tsidp-rust:0.1.0
+          args: []
+          env:
+            - name: TSIDP_TAILSCALE_SOCKET
+              value: /var/run/tailscale/tailscaled.sock
+            - name: TSIDP_LISTEN
+              value: 127.0.0.1:8443          # only tailscale serve can reach this
+            - name: TSIDP_CLUSTER_LISTEN
+              value: 0.0.0.0:8080            # token/userinfo/jwks for in-cluster apps
+            - name: TSIDP_CLUSTER_PUBLIC_URL  # what discovery on that listener advertises
+              value: http://tsidp.tsidp.svc:8080
+            - name: TSIDP_ADMIN_LISTEN
+              value: 0.0.0.0:9464
+            - name: TSIDP_STATE_BACKEND
+              value: kubernetes
+            - name: TSIDP_KUBE_SECRET
+              value: tsidp-state
+            - name: TSIDP_ENABLE_STS
+              value: "1"
+            - name: TSIDP_LOG_FORMAT
+              value: json
+            - name: TSIDP_LOG
+              value: info
+          ports:
+            - name: cluster
+              containerPort: 8080
+            - name: admin
+              containerPort: 9464
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tailscale-socket
+              mountPath: /var/run/tailscale
+          startupProbe:
+            httpGet: { path: /readyz, port: admin }
+            periodSeconds: 5
+            failureThreshold: 120   # tailscaled login + first TLS cert can take minutes
+          readinessProbe:
+            httpGet: { path: /readyz, port: admin }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: admin }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+
+      volumes:
+        - name: tailscale-socket
+          emptyDir: {}
+        - name: tailscale-state
+          emptyDir: {}
+        - name: tailscale-tmp
+          emptyDir: {}
+        - name: serve-config
+          configMap:
+            name: tsidp-serve-config
